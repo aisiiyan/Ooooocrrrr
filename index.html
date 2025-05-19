@@ -16,7 +16,12 @@
       margin-bottom: 10px;
     }
     .image-input {
-      margin-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .preview {
+      margin-top: 5px;
+      max-height: 120px;
+      border: 1px solid #ccc;
     }
     textarea {
       width: 100%;
@@ -43,10 +48,22 @@
 
 <h1>OCR Keyword Extractor (Max 4 Images)</h1>
 
-<div class="image-input"><input type="file" id="img1" accept="image/*"></div>
-<div class="image-input"><input type="file" id="img2" accept="image/*"></div>
-<div class="image-input"><input type="file" id="img3" accept="image/*"></div>
-<div class="image-input"><input type="file" id="img4" accept="image/*"></div>
+<div class="image-input">
+  <input type="file" id="img1" accept="image/*">
+  <img id="preview1" class="preview" src="" alt="">
+</div>
+<div class="image-input">
+  <input type="file" id="img2" accept="image/*">
+  <img id="preview2" class="preview" src="" alt="">
+</div>
+<div class="image-input">
+  <input type="file" id="img3" accept="image/*">
+  <img id="preview3" class="preview" src="" alt="">
+</div>
+<div class="image-input">
+  <input type="file" id="img4" accept="image/*">
+  <img id="preview4" class="preview" src="" alt="">
+</div>
 
 <button onclick="processAllOCR()">Proses OCR</button>
 <button onclick="copyOutput()">Copy Output</button>
@@ -57,21 +74,22 @@
 <script>
   const images = {};
 
-  document.getElementById('img1').addEventListener('change', e => loadImage(e, 1));
-  document.getElementById('img2').addEventListener('change', e => loadImage(e, 2));
-  document.getElementById('img3').addEventListener('change', e => loadImage(e, 3));
-  document.getElementById('img4').addEventListener('change', e => loadImage(e, 4));
-
   function loadImage(event, index) {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = e => {
         images[index] = e.target.result;
+        document.getElementById('preview' + index).src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
   }
+
+  document.getElementById('img1').addEventListener('change', e => loadImage(e, 1));
+  document.getElementById('img2').addEventListener('change', e => loadImage(e, 2));
+  document.getElementById('img3').addEventListener('change', e => loadImage(e, 3));
+  document.getElementById('img4').addEventListener('change', e => loadImage(e, 4));
 
   async function processAllOCR() {
     const output = document.getElementById('output');
@@ -88,10 +106,9 @@
           const result = await Tesseract.recognize(images[i], 'eng');
           let text = result.data.text;
 
-          // Pisah dan filter keyword
           let words = text
-            .replace(/[^a-zA-Z0-9\s]/g, '') // buang karakter non-alfanumerik
-            .split(/\s+/)                  // pisah kata
+            .replace(/[^a-zA-Z0-9\s]/g, '') // buang simbol
+            .split(/\s+/)
             .map(word => word.trim())
             .filter(word => word.length > 1 && !/^Q[a-z]/i.test(word) && word.toLowerCase() !== 'q');
 
