@@ -102,8 +102,8 @@
             const result = await Tesseract.recognize(images[i], 'eng');
             const text = result.data.text;
             const cleaned = text
-              .replace(/[^a-zA-Z0-9\\s]/g, '')
-              .split(/\\s+/)
+              .replace(/[^a-zA-Z0-9\s]/g, '')
+              .split(/\s+/)
               .filter(Boolean)
               .join(', ');
             combined.push(cleaned);
