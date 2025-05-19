@@ -2,132 +2,116 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OCR Web App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OCR Keywords Extractor</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       background: white;
-      color: #333;
       padding: 20px;
-      max-width: 800px;
-      margin: auto;
     }
     h1 {
-      text-align: center;
+      font-size: 24px;
+      margin-bottom: 10px;
     }
-    .image-block {
-      margin-bottom: 30px;
-    }
-    .preview {
-      max-width: 100%;
-      max-height: 200px;
-      display: block;
-      margin-top: 10px;
+    .image-input {
+      margin-bottom: 10px;
     }
     textarea {
       width: 100%;
       height: 120px;
       margin-top: 10px;
       font-size: 14px;
+      padding: 10px;
     }
     button {
       margin-top: 10px;
-      padding: 10px 20px;
+      margin-right: 10px;
+      padding: 10px 15px;
+      font-size: 14px;
       cursor: pointer;
     }
     #status {
-      font-style: italic;
       margin-top: 10px;
+      font-style: italic;
+      color: #555;
     }
   </style>
 </head>
 <body>
-  <h1>OCR Web App (4 Gambar)</h1>
 
-  <div class="image-block">
-    <label>Gambar 1: <input type="file" accept="image/*" onchange="handleFile(this, 1)" /></label>
-    <img id="preview1" class="preview" />
-  </div>
+<h1>OCR Keyword Extractor (Max 4 Images)</h1>
 
-  <div class="image-block">
-    <label>Gambar 2: <input type="file" accept="image/*" onchange="handleFile(this, 2)" /></label>
-    <img id="preview2" class="preview" />
-  </div>
+<div class="image-input"><input type="file" id="img1" accept="image/*"></div>
+<div class="image-input"><input type="file" id="img2" accept="image/*"></div>
+<div class="image-input"><input type="file" id="img3" accept="image/*"></div>
+<div class="image-input"><input type="file" id="img4" accept="image/*"></div>
 
-  <div class="image-block">
-    <label>Gambar 3: <input type="file" accept="image/*" onchange="handleFile(this, 3)" /></label>
-    <img id="preview3" class="preview" />
-  </div>
+<button onclick="processAllOCR()">Proses OCR</button>
+<button onclick="copyOutput()">Copy Output</button>
 
-  <div class="image-block">
-    <label>Gambar 4: <input type="file" accept="image/*" onchange="handleFile(this, 4)" /></label>
-    <img id="preview4" class="preview" />
-  </div>
+<div id="status"></div>
+<textarea id="output" placeholder="Hasil OCR akan muncul di sini..."></textarea>
 
-  <button onclick="processAllOCR()">Proses Semua Gambar</button>
-  <div id="status"></div>
+<script>
+  const images = {};
 
-  <h2>Output Gabungan:</h2>
-  <textarea id="output"></textarea>
-  <button onclick="copyOutput()">Copy</button>
+  document.getElementById('img1').addEventListener('change', e => loadImage(e, 1));
+  document.getElementById('img2').addEventListener('change', e => loadImage(e, 2));
+  document.getElementById('img3').addEventListener('change', e => loadImage(e, 3));
+  document.getElementById('img4').addEventListener('change', e => loadImage(e, 4));
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  <script>
-    const images = [null, null, null, null, null];
-
-    function handleFile(input, index) {
-      const file = input.files[0];
-      if (!file) return;
+  function loadImage(event, index) {
+    const file = event.target.files[0];
+    if (file) {
       const reader = new FileReader();
-      reader.onload = function (e) {
-        document.getElementById('preview' + index).src = e.target.result;
+      reader.onload = e => {
         images[index] = e.target.result;
       };
       reader.readAsDataURL(file);
     }
+  }
 
-    async function processAllOCR() {
-      const output = document.getElementById('output');
-      const status = document.getElementById('status');
-      output.value = '';
-      status.textContent = 'Memproses...';
+  async function processAllOCR() {
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+    output.value = '';
+    status.textContent = 'Memproses...';
 
-      let combined = [];
+    let combined = [];
 
-      for (let i = 1; i <= 4; i++) {
-        if (images[i]) {
-          try {
-            status.textContent = `Memproses gambar ${i}...`;
-            const result = await Tesseract.recognize(images[i], 'eng');
-            const text = result.data.text;
+    for (let i = 1; i <= 4; i++) {
+      if (images[i]) {
+        try {
+          status.textContent = `Memproses gambar ${i}...`;
+          const result = await Tesseract.recognize(images[i], 'eng');
+          let text = result.data.text;
 
-            const cleaned = text
-              .replace(/[^a-zA-Z0-9\s]/g, '') // Hapus simbol aneh
-              .split(/\s+/)                   // Pecah jadi kata
-              .filter(word =>
-                word.length > 1 || /^[A-Za-z0-9]+$/.test(word) // Buang kata sangat pendek
-              )
-              .filter(word => word.toLowerCase() !== 'q') // Buang huruf 'Q' khusus
-              .join(', ');                   // Gabung dengan koma
+          // Pisah dan filter keyword
+          let words = text
+            .replace(/[^a-zA-Z0-9\s]/g, '') // buang karakter non-alfanumerik
+            .split(/\s+/)                  // pisah kata
+            .map(word => word.trim())
+            .filter(word => word.length > 1 && !/^Q[a-z]/i.test(word) && word.toLowerCase() !== 'q');
 
-            combined.push(cleaned);
-          } catch (err) {
-            console.error('Error OCR gambar ' + i, err);
-          }
+          combined.push(...words);
+        } catch (err) {
+          console.error('Error OCR gambar ' + i, err);
         }
       }
-
-      output.value = combined.join(', ');
-      status.textContent = 'Selesai';
     }
 
-    function copyOutput() {
-      const output = document.getElementById('output');
-      output.select();
-      document.execCommand('copy');
-      alert('Teks berhasil disalin!');
-    }
-  </script>
+    output.value = combined.join(', ');
+    status.textContent = 'Selesai';
+  }
+
+  function copyOutput() {
+    const output = document.getElementById('output');
+    output.select();
+    document.execCommand('copy');
+  }
+</script>
+
 </body>
 </html>
