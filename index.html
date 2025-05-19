@@ -101,11 +101,14 @@
             status.textContent = `Memproses gambar ${i}...`;
             const result = await Tesseract.recognize(images[i], 'eng');
             const text = result.data.text;
+
+            // Bersihkan dan pisahkan kata
             const cleaned = text
-              .replace(/[^a-zA-Z0-9\s]/g, '')
-              .split(/\s+/)
-              .filter(Boolean)
-              .join(', ');
+              .replace(/[^a-zA-Z0-9\s]/g, '') // Hapus simbol aneh
+              .split(/\s+/)                  // Pecah per kata (berdasarkan spasi)
+              .filter(Boolean)               // Buang string kosong
+              .join(', ');                   // Gabung pakai koma dan spasi
+
             combined.push(cleaned);
           } catch (err) {
             console.error('Error OCR gambar ' + i, err);
