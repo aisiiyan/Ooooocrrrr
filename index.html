@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OCR Keywords Extractor</title>
+  <title>OCR Keywords Extractor + Spell Check</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
     body {
@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<h1>OCR Keyword Extractor (Max 4 Images)</h1>
+<h1>OCR Keyword Extractor (4 Images + Spell Check)</h1>
 
 <div class="image-input">
   <input type="file" id="img1" accept="image/*">
@@ -65,11 +65,11 @@
   <img id="preview4" class="preview" src="" alt="">
 </div>
 
-<button onclick="processAllOCR()">Proses OCR</button>
+<button onclick="processAllOCR()">Proses OCR + Spell Check</button>
 <button onclick="copyOutput()">Copy Output</button>
 
 <div id="status"></div>
-<textarea id="output" placeholder="Hasil OCR akan muncul di sini..."></textarea>
+<textarea id="output" placeholder="Hasil akhir OCR dan koreksi akan muncul di sini..."></textarea>
 
 <script>
   const images = {};
@@ -95,38 +95,77 @@
     const output = document.getElementById('output');
     const status = document.getElementById('status');
     output.value = '';
-    status.textContent = 'Memproses...';
+    status.textContent = 'Memproses OCR...';
 
-    let combined = [];
+    let combinedText = '';
 
     for (let i = 1; i <= 4; i++) {
       if (images[i]) {
         try {
-          status.textContent = `Memproses gambar ${i}...`;
+          status.textContent = `OCR gambar ${i}...`;
           const result = await Tesseract.recognize(images[i], 'eng');
           let text = result.data.text;
-
-          let words = text
-            .replace(/[^a-zA-Z0-9\s]/g, '') // buang simbol
-            .split(/\s+/)
-            .map(word => word.trim())
-            .filter(word => word.length > 1 && !/^Q[a-z]/i.test(word) && word.toLowerCase() !== 'q');
-
-          combined.push(...words);
+          combinedText += ' ' + text;
         } catch (err) {
           console.error('Error OCR gambar ' + i, err);
         }
       }
     }
 
-    output.value = combined.join(', ');
+    status.textContent = 'Melakukan spell check...';
+    const corrected = await spellCheck(combinedText);
+    status.textContent = 'Memfilter dan menyusun hasil...';
+
+    const words = corrected
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .split(/\s+/)
+      .map(word => word.trim().toLowerCase())
+      .filter(word =>
+        word.length > 1 &&
+        word !== 'q' &&
+        !/^q[a-z]/.test(word)
+      );
+
+    output.value = [...new Set(words)].join(', ');
     status.textContent = 'Selesai';
+  }
+
+  async function spellCheck(text) {
+    const params = new URLSearchParams();
+    params.append('text', text);
+    params.append('language', 'en-US');
+
+    try {
+      const res = await fetch('https://api.languagetool.org/v2/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      });
+
+      const data = await res.json();
+      let corrected = text;
+
+      // Ganti dari belakang ke depan agar posisi tidak rusak
+      for (let i = data.matches.length - 1; i >= 0; i--) {
+        const match = data.matches[i];
+        if (match.replacements.length > 0) {
+          const replacement = match.replacements[0].value;
+          corrected = corrected.substring(0, match.offset) + replacement + corrected.substring(match.offset + match.length);
+        }
+      }
+
+      return corrected;
+    } catch (err) {
+      console.error('Spell check error:', err);
+      return text;
+    }
   }
 
   function copyOutput() {
     const output = document.getElementById('output');
     output.select();
     document.execCommand('copy');
+    alert('Teks berhasil disalin!');
   }
 </script>
 
